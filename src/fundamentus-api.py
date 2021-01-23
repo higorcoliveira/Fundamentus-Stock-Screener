@@ -6,11 +6,11 @@ import json
 import urllib.request
 import pandas as pd
 
-# Filter
-MARKET_CAP = 200000000.00
-VOLUME = 200000.00
+# Filtros (valor de mercado e liquidez)
+MARKET_CAP = 50000000.00
+VOLUME = 100000.00
 
-# http://www.b3.com.br/pt_br/produtos-e-servicos/negociacao/renda-variavel/acoes/consultas/classificacao-setorial/
+# Fonte: http://www.b3.com.br/pt_br/produtos-e-servicos/negociacao/renda-variavel/acoes/consultas/classificacao-setorial/
 FINANCIAL_STOCKS = [
 					'ABCB','RPAD','BRIV','BAZA','BPAN','BGIP','BEES','BOAC','BPAR','BRSR','BBDC','BBAS','BSLI','BPAC','CTGP','GSGI','IDVL','BIDI','ITSA','ITUB','JPMC','BMEB','BMIN','BNBR','PRBC','BPAT','PINE','SANB','UBSG','USBC','WFCO', #bancos
 					'CRIV','FNCN','MERC', #Soc. Crédito e Financiamento
@@ -42,8 +42,11 @@ def get_screening():
 		for col in cols:
 			df[col] = df[col].str.replace('%', '').str.replace('.','').str.replace(',','.').astype(float) / 100.0
 
-		# Filter: Volume
+		print(df)
+
+		# Filtro1: Volume
 		return df[(df['Liq.2meses'] >= VOLUME) & (df['Mrg Ebit'] > 0.0)]
+
 	except (ConnectionError, Timeout, TooManyRedirects) as e:
 		print(e)
 		return None
@@ -55,7 +58,7 @@ def get_stock_info(ticker):
 		'Accepts': 'text/html,application/xhtml+xml,application/xml',
 	}
 	
-	try: 
+	try:
 		req = urllib.request.Request(url, headers=headers)
 		url = urllib.request.urlopen(req)
 		response = url.read().decode('ISO-8859-1')
@@ -79,7 +82,7 @@ def get_stock_info(ticker):
 		df0 = df0.pivot(columns=0).stack().groupby(level=0, sort=False).first().transpose()
 		df0.columns = cols.str.replace('?','')
 
-		# Valor de mercado
+		# Cálculo de Valor de mercado
 		'''
 			0 					1 				2 							3
 		0 	?Valor de mercado 	398379000000 	?Últ balanço processado 	30/09/2019
@@ -140,7 +143,7 @@ if __name__ == '__main__':
 	out = pd.merge(df, stocks_info, how ='outer', on ='Papel') 
 	#out.to_csv('full-list.csv')
 
-	# Filter: Market Cap
+	# Filtro2: Market Cap
 	out = out[out['Valor de mercado'] >= MARKET_CAP]
 
 	out = out[['Papel', 'Empresa', 'Setor', 'Subsetor', 'Tipo', 'Cotação_x',
@@ -149,25 +152,26 @@ if __name__ == '__main__':
        'Dív.Brut/ Patrim.', 'Valor de mercado',
        'Data últ cot', 'Últ balanço processado']]
 
-	# Removing Financial Stocks based on B3 categorization
+	# Remove ações de bancos e seguradoras
 	out = out[~out['Papel'].str.contains('|'.join(FINANCIAL_STOCKS))]	
 
-	# Keep stock with higher volume, in case of duplicated ticker (i.e.: PETR4, PETR3)
+	# Pega o ticket com o maior volume (i.e.: PETR4, PETR3)
 	out['pre_ticker'] = out['Papel'].str[:4]
 	out.sort_values(by=['pre_ticker', 'Liq.2meses'], ascending=[True, False], inplace=True)
 	out.drop_duplicates(subset=['pre_ticker'], keep='first', inplace=True)
 	out.drop('pre_ticker', axis=1, inplace=True)
 
-	# Acquirer's Multiple Ranking
+	# Ranking baseado em EV/EBIT do menor pro maior
 	out.sort_values(by=['EV/EBIT'], ascending=[True], inplace=True)
 	out.reset_index(drop=True, inplace=True)
 	out['Acquirer'] = out.index
 
-	# Magic Formula Ranking
+	# Ranking baseado em ROIC do maior pro menor
 	out.sort_values(by=['ROIC'], ascending=[False], inplace=True)
-	out.reset_index(drop=True, inplace=True)		
+	out.reset_index(drop=True, inplace=True)
 	out['MF-ROIC'] = out.index
 
+	# Cria coluna Magic Formula
 	out['MF'] = out['Acquirer'] + out['MF-ROIC']
 	out.sort_values(by=['MF'], ascending=[True], inplace=True)
 	out.reset_index(drop=True, inplace=True)
@@ -176,7 +180,7 @@ if __name__ == '__main__':
 	out.sort_values(by=['Acquirer'], ascending=[True], inplace=True)
 	out.reset_index(drop=True, inplace=True)
 
+	# Extrair arquivos
 	out.to_json('fundamentus.json', orient='index')
 	out.to_excel('fundamentus.xlsx')
 	out[['Papel', 'Empresa', 'Setor', 'Acquirer', 'MF']].to_csv('fundamentus-summary.csv')
-

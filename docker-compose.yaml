@@ -1,0 +1,6 @@
+version: "3"
+services:
+  fundamentus:
+    build: .
+    volumes: 
+      - /mnt/d/Desenvolvimento:/code
