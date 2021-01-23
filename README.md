@@ -1,6 +1,12 @@
 # Fundamentus - Stock Screening
 Stock screening from Fundamentus website to build Acquirer's Multiple and Magic Formula ranking for Brazil stock market (B3).
 
+# TO RUN
+Alterar para um diretório de sua escolha o volume do docker-compose.yaml e executar:
+
+```
+docker-compose up -d
+```
 # Filters
 - Market Cap >= R$200.000.000,00
 - Avg. Volume >= R$200.000,00 per day

@@ -2,5 +2,5 @@ version: "3"
 services:
   fundamentus:
     build: .
-    volumes: 
-      - /mnt/d/Desenvolvimento:/code
+    volumes: # alterar para um diretorio de sua escolha
+      - /mnt/d/Desenvolvimento/Fundamentus-Stock-Screener/:/code
